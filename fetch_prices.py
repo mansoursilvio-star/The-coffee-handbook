@@ -40,17 +40,23 @@ HEADERS = {
 YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=5d"
 
 # Stooq is a second free source (CSV, very script-friendly). Symbols differ:
-# Stooq uses kc.f / rc.f style continuous futures tickers.
-STOOQ_SYMBOLS = {"kc": "kc.f", "rc": "rc.f"}
+# Stooq uses continuous-futures tickers. Robusta on Stooq is rm.f (Robusta 10-T, ICE).
+# NOTE: Yahoo's KC=F works for arabica, but Yahoo has no clean robusta futures
+# symbol, so robusta is fetched from Stooq.
+STOOQ_SYMBOLS = {"kc": "kc.f", "rc": "rm.f"}
 STOOQ_URL = "https://stooq.com/q/l/?s={sym}&f=sd2t2ohlcv&h&e=csv"
 
 
 def fetch_stooq(key):
-    """Fallback: pull last close from Stooq CSV. Returns same dict shape or None."""
+    """Free source: pull recent daily closes from Stooq CSV. Returns dict or None.
+    Uses the daily-history endpoint so we can get the latest close AND the prior
+    close (to compute the change). Stooq's daily close is effectively the settle.
+    """
     sym = STOOQ_SYMBOLS.get(key)
     if not sym:
         return None
-    url = STOOQ_URL.format(sym=sym)
+    # daily history CSV: Date,Open,High,Low,Close,Volume
+    url = "https://stooq.com/q/d/l/?s={sym}&i=d".format(sym=sym)
     req = urllib.request.Request(url, headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
@@ -58,23 +64,35 @@ def fetch_stooq(key):
     except Exception as e:
         print(f"  [warn] Stooq fetch failed for {key}: {e}", file=sys.stderr)
         return None
-    # CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
     lines = text.splitlines()
     if len(lines) < 2:
+        print(f"  [warn] Stooq returned no rows for {key}", file=sys.stderr)
         return None
-    cols = lines[1].split(",")
-    try:
-        close = float(cols[6])
-        return {
-            "last": round(close, 2),
-            "previousClose": None,   # Stooq daily close is the settle itself
-            "change": None,
-            "contract": "front month",
-            "currency": "",
-            "via": "stooq",
-        }
-    except (IndexError, ValueError):
+    # parse the data rows (skip header). take the last two for latest + prior.
+    rows = []
+    for ln in lines[1:]:
+        parts = ln.split(",")
+        if len(parts) >= 5:
+            try:
+                rows.append((parts[0], float(parts[4])))  # (date, close)
+            except ValueError:
+                continue
+    if not rows:
         return None
+    latest_date, latest_close = rows[-1]
+    prev_close = rows[-2][1] if len(rows) >= 2 else None
+    change = round(latest_close - prev_close, 2) if prev_close is not None else None
+    return {
+        "last": round(latest_close, 2),
+        # Stooq's latest daily close IS the latest settle. We expose it as both the
+        # last price and the settle the handbook should use.
+        "previousClose": round(prev_close, 2) if prev_close is not None else round(latest_close, 2),
+        "change": change,
+        "contract": "front month",
+        "currency": "",
+        "via": "stooq",
+        "asOf": latest_date,
+    }
 
 
 def fetch_yahoo(symbol):
@@ -131,11 +149,20 @@ def main():
 
     any_ok = False
     for key, sym in SYMBOLS.items():
-        print(f"Fetching {key.upper()} ({sym})...")
-        info = fetch_yahoo(sym)
-        if not info:
-            print(f"  Yahoo failed, trying Stooq fallback for {key.upper()}...")
+        print(f"Fetching {key.upper()}...")
+        info = None
+        # KC (arabica): Yahoo works well. RC (robusta): Yahoo has no clean futures
+        # symbol, so go straight to Stooq.
+        if key == "kc":
+            info = fetch_yahoo(sym)
+            if not info:
+                print(f"  Yahoo failed, trying Stooq fallback for {key.upper()}...")
+                info = fetch_stooq(key)
+        else:
             info = fetch_stooq(key)
+            if not info:
+                print(f"  Stooq failed, trying Yahoo for {key.upper()}...")
+                info = fetch_yahoo(sym)
         if info:
             out["markets"][key] = info
             any_ok = True
