@@ -1,12 +1,12 @@
 {
-  "updated": "2026-06-25T15:54:06+00:00",
+  "updated": "2026-06-25T16:03:08+00:00",
   "source": "Yahoo Finance (front-month, delayed)",
   "note": "Front-month only. previousClose is the pre-open settle. For a specific back month, use the paste box in the handbook.",
   "markets": {
     "kc": {
-      "last": 274.6,
+      "last": 274.0,
       "previousClose": 277.0,
-      "change": -2.4,
+      "change": -3.0,
       "contract": "Coffee Dec 26",
       "currency": "USX"
     },
@@ -16,7 +16,8 @@
       "change": null,
       "contract": "",
       "currency": "",
-      "error": "fetch failed"
+      "manual": true,
+      "note": "Robusta is not available from a free auto source. Use the paste box."
     }
   }
 }
