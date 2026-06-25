@@ -1,0 +1,44 @@
+name: Update coffee prices
+
+# When this runs:
+#  - on a schedule each morning (UTC). Adjust the cron time below if you want.
+#  - and you can trigger it by hand from the Actions tab (workflow_dispatch).
+on:
+  schedule:
+    # 06:30 UTC every weekday (Mon-Fri). ICE settles the prior afternoon, so a
+    # morning run picks up the latest settle. Cron is in UTC.
+    # Geneva is UTC+1 (winter) / UTC+2 (summer), so this is ~07:30-08:30 local.
+    - cron: '30 6 * * 1-5'
+  workflow_dispatch: {}
+
+# the job needs permission to commit the updated prices.json back to the repo
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch the latest prices
+        run: python fetch_prices.py
+
+      - name: Commit prices.json if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain prices.json)" ]; then
+            git add prices.json
+            git commit -m "Update coffee prices ($(date -u +%Y-%m-%d))"
+            git push
+            echo "prices.json updated and pushed."
+          else
+            echo "No change in prices.json, nothing to commit."
+          fi
