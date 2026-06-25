@@ -24,10 +24,12 @@ import urllib.parse
 import urllib.error
 from datetime import datetime, timezone
 
-# Yahoo symbols for the two markets (front-month continuous)
+# Symbols to auto-pull. Only KC (arabica, NY) is here because it is the only
+# coffee contract freely available to a script. Robusta (RC, London ICE) is NOT:
+# Yahoo has no robusta futures symbol, and Stooq/Barchart block automated futures
+# downloads. So robusta is filled via the paste box in the handbook instead.
 SYMBOLS = {
-    "kc": "KC=F",   # ICE US arabica, US cents/lb
-    "rc": "RC=F",   # ICE London robusta, USD/tonne
+    "kc": "KC=F",   # ICE US arabica, US cents/lb (front month)
 }
 
 # a normal browser user-agent: Yahoo's endpoint is friendlier with one set
@@ -150,31 +152,31 @@ def main():
     any_ok = False
     for key, sym in SYMBOLS.items():
         print(f"Fetching {key.upper()}...")
-        info = None
-        # KC (arabica): Yahoo works well. RC (robusta): Yahoo has no clean futures
-        # symbol, so go straight to Stooq.
-        if key == "kc":
-            info = fetch_yahoo(sym)
-            if not info:
-                print(f"  Yahoo failed, trying Stooq fallback for {key.upper()}...")
-                info = fetch_stooq(key)
-        else:
+        # KC (arabica) via Yahoo, with Stooq as a backup attempt.
+        info = fetch_yahoo(sym)
+        if not info:
+            print(f"  Yahoo failed, trying Stooq fallback for {key.upper()}...")
             info = fetch_stooq(key)
-            if not info:
-                print(f"  Stooq failed, trying Yahoo for {key.upper()}...")
-                info = fetch_yahoo(sym)
         if info:
             out["markets"][key] = info
             any_ok = True
             print(f"  {key.upper()}: last={info['last']} prevClose={info.get('previousClose')} "
                   f"chg={info.get('change')} ({info.get('contract','')})")
         else:
-            # keep a placeholder so the handbook can show "unavailable" gracefully
             out["markets"][key] = {
                 "last": None, "previousClose": None, "change": None,
                 "contract": "", "currency": "", "error": "fetch failed",
             }
-            print(f"  {key.upper()}: FAILED (both sources)")
+            print(f"  {key.upper()}: FAILED")
+
+    # Robusta (RC) is not auto-pullable for free (see note above). Mark it clearly
+    # so the handbook shows "paste from Barchart" rather than an error.
+    out["markets"]["rc"] = {
+        "last": None, "previousClose": None, "change": None,
+        "contract": "", "currency": "",
+        "manual": True,
+        "note": "Robusta is not available from a free auto source. Use the paste box.",
+    }
 
     if not any_ok:
         # do not overwrite a good file with a fully-empty one: exit non-zero so
