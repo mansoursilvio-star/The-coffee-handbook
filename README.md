@@ -1,5 +1,3 @@
-# The-coffee-handbook
-
 # The Coffee Handbook
 
 A browser-based market-reading and note-taking tool built for a green coffee trading desk. It turns the daily routine of reading the market into a structured, repeatable process, and keeps a living record of those reads so they can be compared over time.
