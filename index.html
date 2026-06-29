@@ -4050,7 +4050,12 @@ function saveToHistory(){
 
   // if we're editing a note that was opened from history, UPDATE it in place
   // (no duplicate). Otherwise create a new entry.
-  const existing = (openEntryId!=null) ? HIST.find(h=>h.id===openEntryId) : null;
+  // IMPORTANT: a daily and a weekly are always separate notes. Only update in
+  // place when the open note is the SAME mode as what we're saving now, so that
+  // saving a weekly never overwrites the daily you saved earlier this session
+  // (or vice versa). Otherwise we fall through and create a fresh note.
+  const candidate = (openEntryId!=null) ? HIST.find(h=>h.id===openEntryId) : null;
+  const existing = (candidate && (candidate.mode||'daily')===MODE) ? candidate : null;
   let savedWord = 'Saved';
   if(existing){
     existing.snap = snap;
