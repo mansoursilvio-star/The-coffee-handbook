@@ -1,12 +1,12 @@
 {
-  "updated": "2026-11-20T15:38:29+00:00",
+  "updated": "2026-11-23T18:31:11+00:00",
   "source": "Barchart futures-prices (full curve, delayed)",
   "note": "Full futures curve per market. previousClose is the prior session settle (the pre-open number). `contracts` lists every listed month.",
   "markets": {
     "kc": {
-      "last": 275.4,
-      "previousClose": 280.7,
-      "change": -5.3,
+      "last": 267.8,
+      "previousClose": 280.95,
+      "change": -13.15,
       "contract": "Coffee Dec 26",
       "currency": "USX",
       "via": "yahoo (fallback, front-month only)",
